@@ -1,0 +1,414 @@
+// backend/controllers/authController.js
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { User } = require('../models');
+
+const register = async (req, res) => {
+  try {
+    const { email, password, name, role } = req.body;
+    
+    const existingUser = await User.findOne({ where: { email } });
+    if (existingUser) {
+      return res.status(400).json({ error: 'User already exists' });
+    }
+
+    const user = await User.create({ email, password, name, role });
+    
+    const token = jwt.sign(
+      { userId: user.id, role: user.role },
+      process.env.JWT_SECRET || 'your-secret-key',
+      { expiresIn: '7d' }
+    );
+
+    res.status(201).json({
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role
+      },
+      token
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+const login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    const user = await User.findOne({ where: { email } });
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const token = jwt.sign(
+      { userId: user.id, role: user.role },
+      process.env.JWT_SECRET || 'your-secret-key',
+      { expiresIn: '7d' }
+    );
+
+    res.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role
+      },
+      token
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+module.exports = { register, login };
+
+// backend/controllers/productController.js
+const { Product, Review, User } = require('../models');
+const { Op } = require('sequelize');
+
+const createProduct = async (req, res) => {
+  try {
+    const product = await Product.create({
+      ...req.body,
+      sellerId: req.userId
+    });
+    res.status(201).json(product);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+const getProducts = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 20,
+      category,
+      minPrice,
+      maxPrice,
+      search,
+      sortBy = 'createdAt',
+      sortOrder = 'DESC'
+    } = req.query;
+
+    const where = {};
+    
+    if (category) where.category = category;
+    if (minPrice || maxPrice) {
+      where.price = {};
+      if (minPrice) where.price[Op.gte] = minPrice;
+      if (maxPrice) where.price[Op.lte] = maxPrice;
+    }
+    if (search) {
+      where[Op.or] = [
+        { name: { [Op.iLike]: `%${search}%` } },
+        { description: { [Op.iLike]: `%${search}%` } }
+      ];
+    }
+
+    const products = await Product.findAndCountAll({
+      where,
+      limit: parseInt(limit),
+      offset: (page - 1) * limit,
+      order: [[sortBy, sortOrder]],
+      include: [{
+        model: User,
+        as: 'seller',
+        attributes: ['id', 'name']
+      }]
+    });
+
+    res.json({
+      products: products.rows,
+      totalPages: Math.ceil(products.count / limit),
+      currentPage: page,
+      total: products.count
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+const getProductById = async (req, res) => {
+  try {
+    const product = await Product.findByPk(req.params.id, {
+      include: [
+        {
+          model: User,
+          as: 'seller',
+          attributes: ['id', 'name']
+        },
+        {
+          model: Review,
+          include: [{
+            model: User,
+            attributes: ['id', 'name']
+          }]
+        }
+      ]
+    });
+
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    res.json(product);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+const updateProduct = async (req, res) => {
+  try {
+    const product = await Product.findOne({
+      where: {
+        id: req.params.id,
+        sellerId: req.userId
+      }
+    });
+
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    await product.update(req.body);
+    res.json(product);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+module.exports = {
+  createProduct,
+  getProducts,
+  getProductById,
+  updateProduct
+};
+
+// backend/controllers/cartController.js
+const { Cart, Product } = require('../models');
+
+const addToCart = async (req, res) => {
+  try {
+    const { productId, quantity } = req.body;
+    
+    const product = await Product.findByPk(productId);
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    let cartItem = await Cart.findOne({
+      where: {
+        userId: req.userId,
+        productId
+      }
+    });
+
+    if (cartItem) {
+      cartItem.quantity += quantity;
+      await cartItem.save();
+    } else {
+      cartItem = await Cart.create({
+        userId: req.userId,
+        productId,
+        quantity
+      });
+    }
+
+    res.json(cartItem);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+const getCart = async (req, res) => {
+  try {
+    const cartItems = await Cart.findAll({
+      where: { userId: req.userId },
+      include: [{
+        model: Product,
+        attributes: ['id', 'name', 'price', 'images']
+      }]
+    });
+
+    const total = cartItems.reduce((sum, item) => {
+      return sum + (item.quantity * item.Product.price);
+    }, 0);
+
+    res.json({
+      items: cartItems,
+      total
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+const updateCartItem = async (req, res) => {
+  try {
+    const { quantity } = req.body;
+    
+    const cartItem = await Cart.findOne({
+      where: {
+        id: req.params.id,
+        userId: req.userId
+      }
+    });
+
+    if (!cartItem) {
+      return res.status(404).json({ error: 'Cart item not found' });
+    }
+
+    if (quantity === 0) {
+      await cartItem.destroy();
+      return res.json({ message: 'Item removed from cart' });
+    }
+
+    cartItem.quantity = quantity;
+    await cartItem.save();
+    
+    res.json(cartItem);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+const clearCart = async (req, res) => {
+  try {
+    await Cart.destroy({
+      where: { userId: req.userId }
+    });
+    
+    res.json({ message: 'Cart cleared' });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+module.exports = {
+  addToCart,
+  getCart,
+  updateCartItem,
+  clearCart
+};
+
+// backend/controllers/orderController.js
+const { Order, Cart, Product } = require('../models');
+const sequelize = require('../config/database');
+
+const createOrder = async (req, res) => {
+  const t = await sequelize.transaction();
+  
+  try {
+    const { shippingAddress, paymentMethod } = req.body;
+    
+    // Получаем товары из корзины
+    const cartItems = await Cart.findAll({
+      where: { userId: req.userId },
+      include: [Product],
+      transaction: t
+    });
+
+    if (cartItems.length === 0) {
+      await t.rollback();
+      return res.status(400).json({ error: 'Cart is empty' });
+    }
+
+    // Проверяем наличие товаров и считаем общую сумму
+    let totalAmount = 0;
+    const orderItems = [];
+
+    for (const item of cartItems) {
+      const product = await Product.findByPk(item.productId, { transaction: t });
+      
+      if (product.stock < item.quantity) {
+        await t.rollback();
+        return res.status(400).json({ 
+          error: `Not enough stock for ${product.name}` 
+        });
+      }
+
+      // Уменьшаем количество товара
+      product.stock -= item.quantity;
+      await product.save({ transaction: t });
+
+      orderItems.push({
+        productId: product.id,
+        name: product.name,
+        price: product.price,
+        quantity: item.quantity,
+        sellerId: product.sellerId
+      });
+
+      totalAmount += product.price * item.quantity;
+    }
+
+    // Создаем заказ
+    const order = await Order.create({
+      userId: req.userId,
+      items: orderItems,
+      totalAmount,
+      shippingAddress,
+      paymentMethod
+    }, { transaction: t });
+
+    // Очищаем корзину
+    await Cart.destroy({
+      where: { userId: req.userId },
+      transaction: t
+    });
+
+    await t.commit();
+    res.status(201).json(order);
+  } catch (error) {
+    await t.rollback();
+    res.status(400).json({ error: error.message });
+  }
+};
+
+const getOrders = async (req, res) => {
+  try {
+    const orders = await Order.findAll({
+      where: { userId: req.userId },
+      order: [['createdAt', 'DESC']]
+    });
+    
+    res.json(orders);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+const getOrderById = async (req, res) => {
+  try {
+    const order = await Order.findOne({
+      where: {
+        id: req.params.id,
+        userId: req.userId
+      }
+    });
+
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    res.json(order);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+module.exports = {
+  createOrder,
+  getOrders,
+  getOrderById
+};
+
