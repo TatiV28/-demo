@@ -1,0 +1,238 @@
+// backend/models/User.js
+const { DataTypes } = require('sequelize');
+const sequelize = require('../config/database');
+const bcrypt = require('bcryptjs');
+
+const User = sequelize.define('User', {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
+  },
+  email: {
+    type: DataTypes.STRING,
+    unique: true,
+    allowNull: false,
+    validate: {
+      isEmail: true
+    }
+  },
+  password: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  name: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  role: {
+    type: DataTypes.ENUM('customer', 'seller', 'admin'),
+    defaultValue: 'customer'
+  },
+  phone: {
+    type: DataTypes.STRING
+  },
+  address: {
+    type: DataTypes.JSON
+  }
+});
+
+User.beforeCreate(async (user) => {
+  user.password = await bcrypt.hash(user.password, 10);
+});
+
+module.exports = User;
+
+// backend/models/Order.js
+const { DataTypes } = require('sequelize');
+const sequelize = require('../config/database');
+
+const Order = sequelize.define('Order', {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
+  },
+  userId: {
+    type: DataTypes.UUID,
+    allowNull: false
+  },
+  items: {
+    type: DataTypes.JSON,
+    allowNull: false
+  },
+  totalAmount: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false
+  },
+  status: {
+    type: DataTypes.ENUM('pending', 'processing', 'shipped', 'delivered', 'cancelled'),
+    defaultValue: 'pending'
+  },
+  shippingAddress: {
+    type: DataTypes.JSON,
+    allowNull: false
+  },
+  paymentMethod: {
+    type: DataTypes.STRING
+  },
+  paymentStatus: {
+    type: DataTypes.ENUM('pending', 'paid', 'failed'),
+    defaultValue: 'pending'
+  },
+  trackingNumber: {
+    type: DataTypes.STRING
+  }
+});
+
+module.exports = Order;
+// backend/models/Product.js
+const { DataTypes } = require('sequelize');
+const sequelize = require('../config/database');
+
+const Product = sequelize.define('Product', {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
+  },
+  name: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  description: {
+    type: DataTypes.TEXT
+  },
+  price: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false
+  },
+  stock: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0
+  },
+  category: {
+    type: DataTypes.STRING
+  },
+  images: {
+    type: DataTypes.ARRAY(DataTypes.STRING),
+    defaultValue: []
+  },
+  specifications: {
+    type: DataTypes.JSON
+  },
+  rating: {
+    type: DataTypes.DECIMAL(3, 2),
+    defaultValue: 0
+  },
+  sellerId: {
+    type: DataTypes.UUID,
+    allowNull: false
+  }
+});
+
+module.exports = Product;
+// backend/models/Order.js
+const { DataTypes } = require('sequelize');
+const sequelize = require('../config/database');
+
+const Order = sequelize.define('Order', {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
+  },
+  userId: {
+    type: DataTypes.UUID,
+    allowNull: false
+  },
+  items: {
+    type: DataTypes.JSON,
+    allowNull: false
+  },
+  totalAmount: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false
+  },
+  status: {
+    type: DataTypes.ENUM('pending', 'processing', 'shipped', 'delivered', 'cancelled'),
+    defaultValue: 'pending'
+  },
+  shippingAddress: {
+    type: DataTypes.JSON,
+    allowNull: false
+  },
+  paymentMethod: {
+    type: DataTypes.STRING
+  },
+  paymentStatus: {
+    type: DataTypes.ENUM('pending', 'paid', 'failed'),
+    defaultValue: 'pending'
+  },
+  trackingNumber: {
+    type: DataTypes.STRING
+  }
+});
+
+module.exports = Order;
+// backend/models/Cart.js
+const { DataTypes } = require('sequelize');
+const sequelize = require('../config/database');
+
+const Cart = sequelize.define('Cart', {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
+  },
+  userId: {
+    type: DataTypes.UUID,
+    allowNull: false
+  },
+  productId: {
+    type: DataTypes.UUID,
+    allowNull: false
+  },
+  quantity: {
+    type: DataTypes.INTEGER,
+    defaultValue: 1
+  }
+});
+
+module.exports = Cart;
+// backend/models/Review.js
+const { DataTypes } = require('sequelize');
+const sequelize = require('../config/database');
+
+const Review = sequelize.define('Review', {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
+  },
+  productId: {
+    type: DataTypes.UUID,
+    allowNull: false
+  },
+  userId: {
+    type: DataTypes.UUID,
+    allowNull: false
+  },
+  rating: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    validate: {
+      min: 1,
+      max: 5
+    }
+  },
+  comment: {
+    type: DataTypes.TEXT
+  },
+  images: {
+    type: DataTypes.ARRAY(DataTypes.STRING),
+    defaultValue: []
+  }
+});
+
+module.exports = Review;
