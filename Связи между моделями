@@ -1,0 +1,29 @@
+// backend/models/index.js
+const User = require('./User');
+const Product = require('./Product');
+const Order = require('./Order');
+const Cart = require('./Cart');
+const Review = require('./Review');
+
+// Связи
+User.hasMany(Product, { foreignKey: 'sellerId', as: 'products' });
+Product.belongsTo(User, { foreignKey: 'sellerId', as: 'seller' });
+
+User.hasMany(Order, { foreignKey: 'userId' });
+Order.belongsTo(User, { foreignKey: 'userId' });
+
+User.hasMany(Cart, { foreignKey: 'userId' });
+Cart.belongsTo(User, { foreignKey: 'userId' });
+Cart.belongsTo(Product, { foreignKey: 'productId' });
+
+Product.hasMany(Review, { foreignKey: 'productId' });
+Review.belongsTo(Product, { foreignKey: 'productId' });
+Review.belongsTo(User, { foreignKey: 'userId' });
+
+module.exports = {
+  User,
+  Product,
+  Order,
+  Cart,
+  Review
+};
