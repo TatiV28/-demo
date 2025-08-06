@@ -1,0 +1,5 @@
+// backend/controllers/reviewController.js
+const createReview = async (req, res) => {
+  // Создание отзыва
+  // Обновление рейтинга товара
+};
