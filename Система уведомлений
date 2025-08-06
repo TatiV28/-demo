@@ -1,0 +1,6 @@
+// backend/services/notificationService.js
+const sendNotification = async (userId, type, data) => {
+  // Email уведомления
+  // Push-уведомления
+  // SMS
+};
