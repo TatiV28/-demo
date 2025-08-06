@@ -1,0 +1,261 @@
+// frontend/src/pages/ProductList.js
+import React, { useState, useEffect } from 'react';
+import {
+  Grid,
+  TextField,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Box,
+  Pagination,
+  CircularProgress,
+} from '@mui/material';
+import { productsAPI } from '../services/api';
+import ProductCard from '../components/ProductCard';
+
+const ProductList = () => {
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [filters, setFilters] = useState({
+    search: '',
+    category: '',
+    sortBy: 'createdAt',
+    sortOrder: 'DESC',
+  });
+
+  useEffect(() => {
+    fetchProducts();
+  }, [page, filters]);
+
+  const fetchProducts = async () => {
+    setLoading(true);
+    try {
+      const { data } = await productsAPI.getAll({
+        page,
+        ...filters,
+      });
+      setProducts(data.products);
+      setTotalPages(data.totalPages);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFilterChange = (name, value) => {
+    setFilters(prev => ({ ...prev, [name]: value }));
+    setPage(1);
+  };
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" mt={4}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  return (
+    <Box>
+      <Box display="flex" gap={2} mb={3}>
+        <TextField
+          label="Поиск"
+          variant="outlined"
+          value={filters.search}
+          onChange={(e) => handleFilterChange('search', e.target.value)}
+          fullWidth
+        />
+        
+        <FormControl sx={{ minWidth: 200 }}>
+          <InputLabel>Категория</InputLabel>
+          <Select
+            value={filters.category}
+            label="Категория"
+            onChange={(e) => handleFilterChange('category', e.target.value)}
+          >
+            <MenuItem value="">Все</MenuItem>
+            <MenuItem value="electronics">Электроника</MenuItem>
+            <MenuItem value="clothing">Одежда</MenuItem>
+            <MenuItem value="books">Книги</MenuItem>
+          </Select>
+        </FormControl>
+        
+        <FormControl sx={{ minWidth: 200 }}>
+          <InputLabel>Сортировка</InputLabel>
+          <Select
+            value={filters.sortBy}
+            label="Сортировка"
+            onChange={(e) => handleFilterChange('sortBy', e.target.value)}
+          >
+            <MenuItem value="price">Цена</MenuItem>
+            <MenuItem value="rating">Рейтинг</MenuItem>
+            <MenuItem value="createdAt">Новинки</MenuItem>
+          </Select>
+        </FormControl>
+      </Box>
+
+      <Grid container spacing={3}>
+        {products.map((product) => (
+          <Grid item key={product.id} xs={12} sm={6} md={4} lg={3}>
+            <ProductCard product={product} />
+          </Grid>
+        ))}
+      </Grid>
+
+      <Box display="flex" justifyContent="center" mt={4}>
+        <Pagination
+          count={totalPages}
+          page={page}
+          onChange={(e, value) => setPage(value)}
+          color="primary"
+        />
+      </Box>
+    </Box>
+  );
+};
+
+export default ProductList;
+
+// frontend/src/pages/Cart.js
+import React, { useEffect } from 'react';
+import {
+  Box,
+  Typography,
+  Button,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  IconButton,
+} from '@mui/material';
+import { Add, Remove, Delete } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
+import useCartStore from '../store/cartStore';
+
+const Cart = () => {
+  const navigate = useNavigate();
+  const { items, total, fetchCart, updateQuantity, clearCart } = useCartStore();
+
+  useEffect(() => {
+    fetchCart();
+  }, []);
+
+  const handleQuantityChange = (itemId, currentQuantity, change) => {
+    const newQuantity = currentQuantity + change;
+    if (newQuantity >= 0) {
+      updateQuantity(itemId, newQuantity);
+    }
+  };
+
+  if (items.length === 0) {
+    return (
+      <Box textAlign="center" mt={4}>
+        <Typography variant="h5" gutterBottom>
+          Корзина пуста
+        </Typography>
+        <Button
+          variant="contained"
+          onClick={() => navigate('/')}
+          sx={{ mt: 2 }}
+        >
+          Перейти к покупкам
+        </Button>
+      </Box>
+    );
+  }
+
+  return (
+    <Box>
+      <Typography variant="h4" gutterBottom>
+        Корзина
+      </Typography>
+
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>Товар</TableCell>
+              <TableCell align="right">Цена</TableCell>
+              <TableCell align="center">Количество</TableCell>
+              <TableCell align="right">Сумма</TableCell>
+              <TableCell align="center">Действия</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {items.map((item) => (
+              <TableRow key={item.id}>
+                <TableCell>
+                  <Box display="flex" alignItems="center">
+                    <img
+                      src={item.Product.images?.[0] || '/placeholder.jpg'}
+                      alt={item.Product.name}
+                      style={{ width: 50, height: 50, marginRight: 16 }}
+                    />
+                    <Typography>{item.Product.name}</Typography>
+                  </Box>
+                </TableCell>
+                <TableCell align="right">₽{item.Product.price}</TableCell>
+                <TableCell align="center">
+                  <Box display="flex" alignItems="center" justifyContent="center">
+                    <IconButton
+                      size="small"
+                      onClick={() => handleQuantityChange(item.id, item.quantity, -1)}
+                    >
+                      <Remove />
+                    </IconButton>
+                    <Typography sx={{ mx: 2 }}>{item.quantity}</Typography>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleQuantityChange(item.id, item.quantity, 1)}
+                    >
+                      <Add />
+                    </IconButton>
+                  </Box>
+                </TableCell>
+                <TableCell align="right">
+                  ₽{(item.Product.price * item.quantity).toFixed(2)}
+                </TableCell>
+                <TableCell align="center">
+                  <IconButton
+                    color="error"
+                    onClick={() => updateQuantity(item.id, 0)}
+                  >
+                    <Delete />
+                  </IconButton>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      <Box display="flex" justifyContent="space-between" alignItems="center" mt={3}>
+        <Button variant="outlined" onClick={clearCart}>
+          Очистить корзину
+        </Button>
+        <Box>
+          <Typography variant="h5" gutterBottom>
+            Итого: ₽{total.toFixed(2)}
+          </Typography>
+          <Button
+            variant="contained"
+            size="large"
+            onClick={() => navigate('/checkout')}
+          >
+            Оформить заказ
+          </Button>
+        </Box>
+      </Box>
+    </Box>
+  );
+};
+
+export default Cart;
+
