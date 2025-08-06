@@ -1,0 +1,5 @@
+// backend/services/recommendationService.js
+const getRecommendations = async (userId) => {
+  // Логика на основе истории покупок и просмотров
+  // Можно использовать ML-модели
+};
