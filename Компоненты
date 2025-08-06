@@ -1,0 +1,141 @@
+// frontend/src/components/Layout.js
+import React from 'react';
+import { Link, Outlet, useNavigate } from 'react-router-dom';
+import {
+  AppBar,
+  Toolbar,
+  Typography,
+  Button,
+  Container,
+  Badge,
+  IconButton,
+} from '@mui/material';
+import { ShoppingCart } from '@mui/icons-material';
+import useAuthStore from '../store/authStore';
+import useCartStore from '../store/cartStore';
+
+const Layout = () => {
+  const navigate = useNavigate();
+  const { isAuthenticated, logout, user } = useAuthStore();
+  const { items } = useCartStore();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
+
+  return (
+    <>
+      <AppBar position="static">
+        <Toolbar>
+          <Typography variant="h6" sx={{ flexGrow: 1 }}>
+            <Link to="/" style={{ color: 'white', textDecoration: 'none' }}>
+              Marketplace
+            </Link>
+          </Typography>
+          
+          {isAuthenticated ? (
+            <>
+              <IconButton color="inherit" onClick={() => navigate('/cart')}>
+                <Badge badgeContent={items.length} color="error">
+                  <ShoppingCart />
+                </Badge>
+              </IconButton>
+              <Button color="inherit" onClick={() => navigate('/orders')}>
+                Мои заказы
+              </Button>
+              {user?.role === 'seller' && (
+                <Button color="inherit" onClick={() => navigate('/seller/products')}>
+                  Мои товары
+                </Button>
+              )}
+              <Button color="inherit" onClick={handleLogout}>
+                Выйти
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button color="inherit" onClick={() => navigate('/login')}>
+                Войти
+              </Button>
+              <Button color="inherit" onClick={() => navigate('/register')}>
+                Регистрация
+              </Button>
+            </>
+          )}
+        </Toolbar>
+      </AppBar>
+      
+      <Container sx={{ mt: 4 }}>
+        <Outlet />
+      </Container>
+    </>
+  );
+};
+// frontend/src/components/ProductCard.js
+import React from 'react';
+import {
+  Card,
+  CardMedia,
+  CardContent,
+  Typography,
+  CardActions,
+  Button,
+  Rating,
+} from '@mui/material';
+import { useNavigate } from 'react-router-dom';
+import useCartStore from '../store/cartStore';
+import useAuthStore from '../store/authStore';
+
+const ProductCard = ({ product }) => {
+  const navigate = useNavigate();
+  const { addToCart } = useCartStore();
+  const { isAuthenticated } = useAuthStore();
+
+  const handleAddToCart = async () => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+    
+    const result = await addToCart(product.id);
+    if (result.success) {
+      // Показать уведомление об успешном добавлении
+    }
+  };
+
+  return (
+    <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <CardMedia
+        component="img"
+        height="200"
+        image={product.images?.[0] || '/placeholder.jpg'}
+        alt={product.name}
+        sx={{ cursor: 'pointer' }}
+        onClick={() => navigate(`/products/${product.id}`)}
+      />
+      <CardContent sx={{ flexGrow: 1 }}>
+        <Typography variant="h6" gutterBottom>
+          {product.name}
+        </Typography>
+        <Typography variant="h5" color="primary" gutterBottom>
+          ₽{product.price}
+        </Typography>
+        <Rating value={product.rating} readOnly size="small" />
+      </CardContent>
+      <CardActions>
+        <Button size="small" onClick={() => navigate(`/products/${product.id}`)}>
+          Подробнее
+        </Button>
+        <Button size="small" variant="contained" onClick={handleAddToCart}>
+          В корзину
+        </Button>
+      </CardActions>
+    </Card>
+  );
+};
+
+export default ProductCard;
+
+
+export default Layout;
