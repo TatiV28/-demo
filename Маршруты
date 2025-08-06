@@ -7,3 +7,58 @@ router.post('/register', register);
 router.post('/login', login);
 
 module.exports = router;
+// backend/routes/products.js
+const express = require('express');
+const router = express.Router();
+const { authMiddleware, sellerMiddleware } = require('../middleware/auth');
+const {
+  createProduct,
+  getProducts,
+  getProductById,
+  updateProduct
+} = require('../controllers/productController');
+
+router.get('/', getProducts);
+router.get('/:id', getProductById);
+router.post('/', authMiddleware, sellerMiddleware, createProduct);
+router.put('/:id', authMiddleware, sellerMiddleware, updateProduct);
+module.exports = router;
+
+// backend/routes/cart.js
+const express = require('express');
+const router = express.Router();
+const { authMiddleware } = require('../middleware/auth');
+const {
+  addToCart,
+  getCart,
+  updateCartItem,
+  clearCart
+} = require('../controllers/cartController');
+
+router.use(authMiddleware);
+
+router.post('/', addToCart);
+router.get('/', getCart);
+router.put('/:id', updateCartItem);
+router.delete('/', clearCart);
+
+module.exports = router;
+
+// backend/routes/orders.js
+const express = require('express');
+const router = express.Router();
+const { authMiddleware } = require('../middleware/auth');
+const {
+  createOrder,
+  getOrders,
+  getOrderById
+} = require('../controllers/orderController');
+
+router.use(authMiddleware);
+
+router.post('/', createOrder);
+router.get('/', getOrders);
+router.get('/:id', getOrderById);
+
+module.exports = router;
+
