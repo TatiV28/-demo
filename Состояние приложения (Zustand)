@@ -1,0 +1,38 @@
+// frontend/src/store/authStore.js
+import { create } from 'zustand';
+import { authAPI } from '../services/api';
+
+const useAuthStore = create((set) => ({
+  user: null,
+  token: localStorage.getItem('token'),
+  isAuthenticated: !!localStorage.getItem('token'),
+  
+  login: async (credentials) => {
+    try {
+      const { data } = await authAPI.login(credentials);
+      localStorage.setItem('token', data.token);
+      set({ user: data.user, token: data.token, isAuthenticated: true });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.response?.data?.error };
+    }
+  },
+  
+  register: async (userData) => {
+    try {
+      const { data } = await authAPI.register(userData);
+      localStorage.setItem('token', data.token);
+      set({ user: data.user, token: data.token, isAuthenticated: true });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.response?.data?.error };
+    }
+  },
+  
+  logout: () => {
+    localStorage.removeItem('token');
+    set({ user: null, token: null, isAuthenticated: false });
+  },
+}));
+
+export default useAuthStore;
